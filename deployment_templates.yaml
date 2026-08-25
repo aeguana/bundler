@@ -1,0 +1,8 @@
+templates:
+    - account: "Boost inc"
+      name: "Test Packages Devops Template"
+    - ids:
+        staging: 830
+        # production: 950
+      account: "Boost inc"
+      name: "Copy of Test Packages Devops Template"

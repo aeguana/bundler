@@ -1,0 +1,61 @@
+version: 2.1
+
+# Set by upstream project repos when they trigger this pipeline through the
+# CircleCI API. Empty on ordinary pushes to this repo.
+parameters:
+  project:
+    type: string
+    default: ""
+  version:
+    type: string
+    default: ""
+  package:
+    type: string
+    default: ""
+
+jobs:
+  update-manifest:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Bump manifest and open PR into main
+          command: |
+            scripts/qa_bundle.sh \
+              "<< pipeline.parameters.project >>" \
+              "<< pipeline.parameters.version >>" \
+              "<< pipeline.parameters.package >>"
+
+  fake-test-and-deploy:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Fake test and deployment
+          command: |
+            BRANCH="qa/<< pipeline.parameters.project >>-<< pipeline.parameters.version >>"
+            git fetch --quiet origin "${BRANCH}"
+            git checkout "${BRANCH}"
+            scripts/fake_test_and_deploy.sh \
+              "<< pipeline.parameters.project >>" \
+              "<< pipeline.parameters.version >>"
+
+workflows:
+  qa-bundle:
+    when:
+      not:
+        equal: ["", << pipeline.parameters.project >>]
+    jobs:
+      - update-manifest:
+          context: bundler-github
+
+      - hold-for-qa:
+          type: approval
+          requires:
+            - update-manifest
+
+      - fake-test-and-deploy:
+          requires:
+            - hold-for-qa
