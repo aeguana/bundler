@@ -17,5 +17,4 @@ curl --silent --show-error --fail \
   -d "{\"branch\":\"main\",\"parameters\":{
         \"project\":\"${PROJECT}\",
         \"version\":\"${VERSION#v}\",
-        \"package\":\"${PACKAGE}\"}}" \
-  | grep -o '"number":[0-9]*'
+        \"package\":\"${PACKAGE}\"}}"

@@ -13,10 +13,14 @@ parameters:
     type: string
     default: ""
 
-jobs:
-  update-manifest:
+executors:
+  base:
     docker:
       - image: cimg/base:current
+
+jobs:
+  update-manifest:
+    executor: base
     steps:
       - checkout
       - run:
@@ -27,23 +31,28 @@ jobs:
               "<< pipeline.parameters.version >>" \
               "<< pipeline.parameters.package >>"
 
-  fake-test-and-deploy:
-    docker:
-      - image: cimg/base:current
+  run-HIL-test:
+    executor: base
     steps:
       - checkout
-      - run:
-          name: Fake test and deployment
-          command: |
-            BRANCH="qa/<< pipeline.parameters.project >>-<< pipeline.parameters.version >>"
-            git fetch --quiet origin "${BRANCH}"
-            git checkout "${BRANCH}"
-            scripts/fake_test_and_deploy.sh \
-              "<< pipeline.parameters.project >>" \
-              "<< pipeline.parameters.version >>"
+      - run: scripts/hil_test.sh
+
+  integration-tests:
+    executor: base
+    steps:
+      - checkout
+      - run: scripts/integration_tests.sh
+
+  deploy:
+    executor: base
+    steps:
+      - checkout
+      - run: scripts/deploy.sh
 
 workflows:
-  qa-bundle:
+  # Upstream trigger. Opens the QA PR and stops — pushing the qa/ branch is
+  # what starts the qa-checks pipeline below.
+  open-qa-pr:
     when:
       not:
         equal: ["", << pipeline.parameters.project >>]
@@ -51,11 +60,27 @@ workflows:
       - update-manifest:
           context: bundler-github
 
-      - hold-for-qa:
-          type: approval
-          requires:
-            - update-manifest
+  # Runs against the qa/ branch itself, so these show up as checks on the PR
+  # in GitHub rather than being buried in the upstream repo's pipeline.
+  qa-checks:
+    when:
+      equal: ["", << pipeline.parameters.project >>]
+    jobs:
+      - run-HIL-test:
+          filters: &qa-branches
+            branches:
+              only: /^qa\/.*/
 
-      - fake-test-and-deploy:
+      - integration-tests:
+          filters: *qa-branches
+
+      - hold-for-manual-test:
+          type: approval
+          filters: *qa-branches
+
+      - deploy:
+          filters: *qa-branches
           requires:
-            - hold-for-qa
+            - run-HIL-test
+            - integration-tests
+            - hold-for-manual-test

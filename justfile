@@ -4,9 +4,13 @@ set dotenv-load := true
 trigger project version:
     PROJECT={{project}} VERSION={{version}} ./upstream/trigger_bundler.sh
 
-# Run the placeholder QA script against the working tree
-fake-deploy project version:
-    ./scripts/fake_test_and_deploy.sh {{project}} {{version}}
+# Run the QA placeholders locally as if on the qa/ branch
+qa project version:
+    #!/usr/bin/env bash
+    export CIRCLE_BRANCH="qa/{{project}}-{{version}}"
+    ./scripts/hil_test.sh
+    ./scripts/integration_tests.sh
+    ./scripts/deploy.sh
 
 # Bump a pin locally, no git
 bump project version:
