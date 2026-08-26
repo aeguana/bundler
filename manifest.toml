@@ -21,4 +21,4 @@ payter_psp==1.10.1
 worldline_tim==1.0.1
 bp=1.2.2
 wallee==1.5.5
-nayax-emv==0.11.6
+nayax-emv==0.11.6.dev1192
