@@ -1,0 +1,107 @@
+name: pilot
+
+# Moves every submodule to its latest release tag, bumps the matching
+# manifest.toml pins and opens (or refreshes) a PR from pilot/staging. After
+# the QA tests, deploy-staging waits for approval on the `staging` environment.
+# Production will get its own environment and gated job once staging is proven.
+#
+# Trigger with `just pilot` or from the Actions tab.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pilot
+  cancel-in-progress: false
+
+env:
+  BRANCH: pilot/staging
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.head.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # One machine-user key, or one deploy key per submodule repo with the
+      # repo URL as the key comment (see README).
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SUBMODULE_SSH_KEYS }}
+
+      - run: git submodule update --init
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pyyaml
+
+      - name: Bump submodules and manifest
+        run: scripts/roundup.py --notes "${RUNNER_TEMP}/release_notes.md"
+
+      - run: scripts/check_manifest.sh
+
+      - name: Build PR body
+        run: |
+          {
+            echo "Submodules moved to their latest release tags."
+            echo
+            cat "${RUNNER_TEMP}/release_notes.md"
+            echo
+            echo "Approve the \`staging\` deployment in the pilot run to deploy. Merge to promote."
+          } > "${RUNNER_TEMP}/pr_body.md"
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: ${{ env.BRANCH }}
+          base: main
+          title: "pilot: submodule roundup"
+          commit-message: "pilot: bump submodules to latest release tags"
+          body-path: ${{ runner.temp }}/pr_body.md
+          committer: github-actions[bot] <41898283+github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <41898283+github-actions[bot]@users.noreply.github.com>
+          delete-branch: true
+
+      # Empty when nothing changed and no pilot PR is open, which skips the
+      # rest. If a PR is already open it is re-tested and offered again.
+      - id: head
+        run: echo "sha=$(git ls-remote origin "refs/heads/${BRANCH}" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+  run-HIL-test:
+    needs: update-manifest
+    if: needs.update-manifest.outputs.sha != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.update-manifest.outputs.sha }}
+      - run: scripts/hil_test.sh
+
+  integration-tests:
+    needs: update-manifest
+    if: needs.update-manifest.outputs.sha != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.update-manifest.outputs.sha }}
+      - run: scripts/integration_tests.sh
+
+  # The approval gate is the `staging` environment's required reviewers,
+  # configured in repo Settings > Environments.
+  deploy-staging:
+    needs: [update-manifest, run-HIL-test, integration-tests]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.update-manifest.outputs.sha }}
+      - run: scripts/deploy.sh staging

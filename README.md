@@ -1,58 +1,51 @@
 # bundler
 
-Holds `manifest.toml`, the pinned package set for a release bundle. Upstream
-project repos trigger this repo's CircleCI pipeline when they publish, and it
-opens a QA PR bumping the pin.
+This project automates updating deployment templates `manifest.toml`
+and keeps the changes tracked through a config-as-code style
+canary deployment system. It is built on CICD + scripts which update
+vendlive.
 
-```
-upstream repo publishes v1.8.3
-        │  CircleCI API trigger (project, version)
-        ▼
-  open-qa-pr pipeline
-    update-manifest    cut qa/<project>-<version> off main, bump the pin,
-                       push, open a PR into main
-        │  pushing the branch starts a second pipeline
-        ▼
-  qa-checks pipeline   (runs on the qa/ branch, so it shows on the PR)
-    run-HIL-test ────────┐
-    integration-tests ───┼──> deploy
-    hold-for-manual-test ┘
-        │
-        ▼
-  merge the PR to promote
-```
+# Updates
 
-The split is deliberate: the checks run against the `qa/` branch rather than as
-part of the upstream trigger, so GitHub reports them on the PR and you can get
-at the logs from there.
+A pipeline can be run to update all the submodules and gather the changes
+to update pilot manifest. From this, a deployment template can be created
+and a set of release notes can be made.
 
-## Setup
+Once the pilot is concluded, the pilot can be "promoted" to the stable
+manifest through a pipeline
 
-In this repo: a CircleCI context `bundler-github` holding `GITHUB_TOKEN`
-(repo scope) — used to push the QA branch and open the PR.
+The version numbers can be manually managed instead of relying on CICD.
 
-In each upstream repo: copy `upstream/trigger_bundler.sh` into `scripts/`, call
-it from a tag-filtered job, and give that job a context holding `CIRCLE_TOKEN`.
-Set `PACKAGE` in that job if the repo name differs from the manifest name.
+# Including projects in the bundler
 
-## Hooks
+Create a deployment ssh key that lets github actions update git submodule.
 
-```sh
-pip install pre-commit && pre-commit install
-```
+1. Add the repo as a submodule at a path matching its `manifest.toml` package
+   name: `git submodule add git@github.com:aeguana/<repo>.git <package>`.
+2. Give the `pilot` GitHub Action read access to it. Either add one
+   machine-user key to the `SUBMODULE_SSH_KEYS` secret, or create a deploy key
+   per repo (`ssh-keygen -t ed25519 -C git@github.com:aeguana/<repo>.git`),
+   add the public half to that repo as a read-only deploy key and append the
+   private half to `SUBMODULE_SSH_KEYS`. The comment must be the repo URL so
+   the agent picks the right key.
 
-Runs shellcheck over the scripts, validates `manifest.toml` pins, and catches
-stray whitespace, missing newlines and committed keys.
+# Pilot (staging)
 
-## By hand
+`just pilot` (or Run workflow on the Actions tab) starts the `pilot` action:
 
-```sh
-just trigger sandenvendo 1.8.3      # fire the pipeline
-just qa sandenvendo 1.8.3           # run the QA placeholders locally
-just bump sandenvendo 1.8.3         # just edit the manifest
-```
+1. `update-manifest` checks each submodule out at its latest release tag, bumps
+   its pin and opens a `pilot/staging` PR with the CHANGELOG.yaml entries as
+   release notes.
+2. `run-HIL-test` and `integration-tests` run against that branch.
+3. `deploy-staging` waits for a reviewer to approve the `staging` environment,
+   then deploys.
+4. Merge the PR to promote.
 
-`hil_test.sh`, `integration_tests.sh` and `deploy.sh` are placeholders. Each
-sources `qa_context.sh` for `PROJECT`/`VERSION` (parsed from the branch name)
-and fails its job on a non-zero exit — keep that and the pipeline needs no
-changes when the real tooling lands.
+One-time repo setup:
+
+- Settings > Actions > General: allow GitHub Actions to create pull requests.
+- Settings > Environments: create `staging` and add required reviewers. This is
+  the approval gate.
+
+Production is not wired up yet; it will get its own environment and gated job.
+`just roundup` does step 1 locally without committing.
