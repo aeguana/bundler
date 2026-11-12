@@ -1,0 +1,6 @@
+[submodule "mdb"]
+	path = mdb
+	url = git@github.com:aeguana/mdb.git
+[submodule "vend_manager_v2"]
+	path = vend_manager_v2
+	url = git@github.com:aeguana/vend_manager_v2.git
