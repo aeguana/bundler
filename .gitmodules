@@ -4,3 +4,45 @@
 [submodule "vend_manager_v2"]
 	path = vend_manager_v2
 	url = git@github.com:aeguana/vend_manager_v2.git
+[submodule "sandenvendo"]
+	path = sandenvendo
+	url = git@github.com:aeguana/sandenvendo.git
+[submodule "sandenvendo_linux"]
+	path = sandenvendo_linux
+	url = git@github.com:aeguana/sandenvendo_linux.git
+[submodule "boostbox_generic_dispense"]
+	path = boostbox_generic_dispense
+	url = git@github.com:aeguana/boostbox_generic_dispense.git
+[submodule "xy_cooler"]
+	path = xy_cooler
+	url = git@github.com:aeguana/xy_cooler.git
+[submodule "jofemar_jsd_connect"]
+	path = jofemar_jsd_connect
+	url = git@github.com:aeguana/jofemar_jsd_connect.git
+[submodule "thermometer_rs232"]
+	path = thermometer_rs232
+	url = git@github.com:aeguana/thermometer_rs232.git
+[submodule "sanwo_relay"]
+	path = sanwo_relay
+	url = git@github.com:aeguana/sanwo_relay.git
+[submodule "tcn"]
+	path = tcn
+	url = git@github.com:aeguana/tcn.git
+[submodule "evis_frame"]
+	path = evis_frame
+	url = git@github.com:aeguana/evis_frame.git
+[submodule "payter_psp"]
+	path = payter_psp
+	url = git@github.com:aeguana/payter_psp.git
+[submodule "worldline_tim"]
+	path = worldline_tim
+	url = git@github.com:aeguana/worldline_tim.git
+[submodule "bp"]
+	path = bp
+	url = git@github.com:aeguana/bp.git
+[submodule "wallee"]
+	path = wallee
+	url = git@github.com:aeguana/wallee.git
+[submodule "nayax-emv"]
+	path = nayax-emv
+	url = git@github.com:aeguana/nayax_emv.git

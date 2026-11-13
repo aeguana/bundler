@@ -24,10 +24,10 @@ Create a deployment ssh key that lets github actions update git submodule.
    name: `git submodule add git@github.com:aeguana/<repo>.git <package>`.
 2. Give the `pilot` GitHub Action read access to it. Either add one
    machine-user key to the `SUBMODULE_SSH_KEYS` secret, or create a deploy key
-   per repo (`ssh-keygen -t ed25519 -C git@github.com:aeguana/<repo>.git`),
-   add the public half to that repo as a read-only deploy key and append the
-   private half to `SUBMODULE_SSH_KEYS`. The comment must be the repo URL so
-   the agent picks the right key.
+   per repo with `just make-key`. It writes one key per submodule (with the
+   repo URL as the comment, so the agent picks the right key) to
+   `~/.ssh/bundler` and prints the `gh` commands that add each public key as a
+   read-only deploy key and set `SUBMODULE_SSH_KEYS`.
 
 # Pilot (staging)
 
